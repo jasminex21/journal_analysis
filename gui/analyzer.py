@@ -1,12 +1,19 @@
 import streamlit as st
 import datetime
 import io
+import string
 import base64
 import pandas as pd
 from wordcloud import WordCloud, STOPWORDS
+from nltk.corpus import stopwords
 import plotly.graph_objects as go
-import streamlit_wordcloud as wc
+import streamlit_wordcloud as wordcloud
+from nltk import ngrams
 import matplotlib.pyplot as plt
+
+st.set_page_config(layout='wide',
+                   page_title="Journal Analyzer",
+                   page_icon=":book:")
 
 def apply_theme(selected_theme):
     css = f"""
@@ -53,6 +60,15 @@ THEME = {"background_color": "#212145",
          "inputs": "#4e4466",
          "text_color": "white"}
 
+if "filtered_entries" not in st.session_state: 
+    st.session_state.filtered_entries = None
+if "all_words_and_bigrams" not in st.session_state: 
+    st.session_state.all_words_and_bigrams = None
+if "counts" not in st.session_state: 
+    st.session_state.counts = None
+if "word_dict" not in st.session_state: 
+    st.session_state.word_dict = {}
+
 st.title("Journal Analyzer")
 
 apply_theme(THEME)
@@ -60,11 +76,23 @@ apply_theme(THEME)
 ENTRIES = pd.read_csv("/home/jasmine/PROJECTS/journal_analysis/data/OCT10.csv")
 ENTRIES["date"] = pd.to_datetime(ENTRIES["date"])
 
-stopwords = ["bc", "abt", "ve", "don", "didn", "ll", "got", 
-             "haven", "go", "went", "re", "make", "wasn", 
-             "really", "will", "wouldn", "put", "yet",
-             "doesn", "took", "quite", "way", "actually", 
-             "gonna", "still", "gotta"]
+# removing punctuation
+ENTRIES["entry"] = ENTRIES["entry"].str.replace(f'[{string.punctuation}]', '', regex=True)
+
+STOPWORDS = stopwords.words("english")
+addl_stopwords = ["i’m", "like", "abt", "bc", "really", "get", 
+                 "i’ve", "i’d", "he’s", "got", "i’ll", "can’t",
+                 "would", "could", "rlly", "he’d", "she’s", 
+                 "she’d", "it’ll", "put", "let", "that’s", 
+                 "there’s", "they’re"]
+STOPWORDS += addl_stopwords
+STOPWORDS = [word.replace("'", "’") for word in STOPWORDS]
+
+def get_words_and_bigrams(text):
+
+    words = [word.lower().strip() for word in text.split() if word.lower().strip() not in STOPWORDS]
+    bigrams_list = list(ngrams(words, 2))
+    return words + [' '.join(bigram) for bigram in bigrams_list]
 
 # TODO: need some way to programmatically determine max and min dates
 # bc can't go into future or too far into past
@@ -85,20 +113,27 @@ with st.sidebar:
                   max_value=today,
                   format="MM/DD/YYYY",
                   key="date_range")
-    filtered_entries = ENTRIES[(ENTRIES["date"] >= pd.Timestamp(st.session_state.date_range[0])) & 
+    
+    st.session_state.filtered_entries = ENTRIES[(ENTRIES["date"] >= pd.Timestamp(st.session_state.date_range[0])) & 
                                (ENTRIES["date"] <= pd.Timestamp(st.session_state.date_range[-1]))]
     
-    all_text = " ".join(entry for entry in filtered_entries["entry"]).lower()
-    # st.write(filtered_entries)
+    st.session_state.all_words_and_bigrams = st.session_state.filtered_entries["entry"].apply(get_words_and_bigrams).explode()
 
-wordcloud = WordCloud(width=1000, height=700, background_color='white', 
-                      min_word_length=2, stopwords=set(list(STOPWORDS)+stopwords), #-set(["he", "she", "him", "her"] )
-                      max_words=300, margin=5, random_state=21,
-                      relative_scaling="auto").generate(all_text) 
+    st.session_state.counts = pd.DataFrame(st.session_state.all_words_and_bigrams.value_counts(), columns=['count']).reset_index()
+    st.session_state.counts = st.session_state.counts.rename(columns={"entry": "text", "count": "value"})
+    st.session_state.counts = st.session_state.counts[st.session_state.counts["text"].str.len() > 1]
+    st.session_state.counts = st.session_state.counts.head(200)
+    # st.session_state.word_dict = list(st.session_state.counts.T.to_dict().values())
+    freqs = dict(zip(st.session_state.counts['text'].tolist(), st.session_state.counts['value'].tolist()))
 
+cloud_tab, table_tab = st.tabs(["Word Cloud", "Frequency Table"])
+
+wc = WordCloud(width=1000, height=600, max_words=200, 
+               background_color='white',
+               colormap="Dark2", random_state=21).generate_from_frequencies(freqs)
 img = io.BytesIO()
 plt.figure(figsize=(20, 12))
-plt.imshow(wordcloud, interpolation='bilinear')
+plt.imshow(wc, interpolation='bilinear')
 plt.axis("off")
 plt.savefig(img, format='png', bbox_inches='tight')
 plt.close()
@@ -126,8 +161,11 @@ fig.update_layout(
     xaxis=dict(visible=False),
     yaxis=dict(visible=False),
 )
-st.markdown(f"### WordCloud for {st.session_state.date_range[0].strftime('%m/%d/%Y')} to {st.session_state.date_range[-1].strftime('%m/%d/%Y')}")
-st.plotly_chart(fig)
 
-# return_obj = wc.visualize(filtered_entries, per_word_coloring=False)
-# st.write(return_obj)
+with cloud_tab: 
+    st.markdown(f"### WordCloud for {st.session_state.date_range[0].strftime('%m/%d/%Y')} to {st.session_state.date_range[-1].strftime('%m/%d/%Y')}")
+    st.plotly_chart(fig)
+
+with table_tab: 
+    b1, c, b2 = st.columns(3)
+    c.table(data=st.session_state.counts)
