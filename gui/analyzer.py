@@ -73,7 +73,7 @@ st.title("Journal Analyzer")
 
 apply_theme(THEME)
 
-ENTRIES = pd.read_csv("/home/jasmine/PROJECTS/journal_analysis/data/OCT10.csv")
+ENTRIES = pd.read_csv("/home/jasmine/PROJECTS/journal_analysis/data/2024-10-15_ENTRIES.csv")
 ENTRIES["date"] = pd.to_datetime(ENTRIES["date"])
 
 # removing punctuation
@@ -103,6 +103,7 @@ def get_words_and_bigrams(text):
 # TODO: freq table - more manual than the WC package but for ease rn I'm 
 # keeping the package implementation
 today = datetime.datetime.now()
+last_date = ENTRIES["date"].iloc[-1].date()
 default_diff = datetime.timedelta(days=7)
 
 with st.sidebar: 
@@ -110,7 +111,7 @@ with st.sidebar:
     st.date_input("Date range", 
                   value=(today - default_diff, today), 
                   min_value=datetime.date(2024, 1, 13),
-                  max_value=today,
+                  max_value=last_date,
                   format="MM/DD/YYYY",
                   key="date_range")
     
@@ -126,11 +127,9 @@ with st.sidebar:
     # st.session_state.word_dict = list(st.session_state.counts.T.to_dict().values())
     freqs = dict(zip(st.session_state.counts['text'].tolist(), st.session_state.counts['value'].tolist()))
 
-cloud_tab, table_tab = st.tabs(["Word Cloud", "Frequency Table"])
-
 wc = WordCloud(width=1000, height=600, max_words=200, 
                background_color='white',
-               colormap="Dark2", random_state=21).generate_from_frequencies(freqs)
+               colormap="tab20b", random_state=21).generate_from_frequencies(freqs)
 img = io.BytesIO()
 plt.figure(figsize=(20, 12))
 plt.imshow(wc, interpolation='bilinear')
@@ -162,10 +161,12 @@ fig.update_layout(
     yaxis=dict(visible=False),
 )
 
-with cloud_tab: 
+cloud_col, table_col = st.columns([3, 1])
+
+with cloud_col: 
     st.markdown(f"### WordCloud for {st.session_state.date_range[0].strftime('%m/%d/%Y')} to {st.session_state.date_range[-1].strftime('%m/%d/%Y')}")
     st.plotly_chart(fig)
 
-with table_tab: 
-    b1, c, b2 = st.columns(3)
-    c.table(data=st.session_state.counts)
+with table_col: 
+    st.markdown(f"### Frequency Table")
+    st.dataframe(data=st.session_state.counts, use_container_width=True, height=600)
