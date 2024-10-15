@@ -11,7 +11,7 @@ I came up with this idea out of nowhere whilst doing my nightly journaling, and 
   * Regardling lexical diversity, I do think I subconsciously may have made my vocabulary more diverse ever since I started analyzing my entries lol
 * I'm thinking of removing some more stopwords, because I want my word cloud to highlight actually interesting words and not words like "least," "genuinely," "since," "around," etc. Maybe I should only keep nouns and verbs? Would require POS tagging tho I suppose?
 * Yes, the code producing the web app is currently a mess. I promise I will fix it up in due time.
-* Ideally I wanted the Word Cloud to be hoverable, but that isn't possible with the wordcloud package, and though it did work with the streamlit_wordcloud package, that caused the app to reload every time I hovered, which is way more annoying that sipmly not having the ability to hover. Perhaps still worth looking into tho. 
+* Ideally I wanted the Word Cloud to be hoverable, but that isn't possible with the wordcloud package, and though it did work with the `streamlit_wordcloud` package, that caused the app to reload every time I hovered, which is way more annoying than simply not having the ability to hover. Perhaps still worth looking into tho. 
 * If I truly wanted to nerd out, I can consider going deeper into the NLP rabbithole - go beyond simple word frequencies, and maybe look into sentiment analysis, emotion tagging, etc. Some suggestions: 
   * Sentiment analysis: quantifying the positivity/negativity of entries - any trends? Am I more positive/negative on certain days of the week?
   * Topic modelling: what are themes that I commonly talk about? How does this change over time?
